@@ -327,57 +327,67 @@ def client_pushed():
     elif 'eventType' in data and data['eventType'] == 'Manual':
         logger.info("Client %r made a manual scan request for: '%s'", request.remote_addr, data['filepath'])
         final_paths = utils.map_pushed_path(conf.configs, data['filepath'])
+        success = True
+
+        scanned_paths = []
         for final_path in final_paths:
             # ignore this request?
             ignore, ignore_match = utils.should_ignore(final_path, conf.configs)
             if ignore:
                 logger.info("Ignored scan request for '%s' because '%s' was matched from SERVER_IGNORE_LIST", final_path,
                             ignore_match)
-                return "Ignoring scan request because %s was matched from your SERVER_IGNORE_LIST" % ignore_match
+                # return "Ignoring scan request because %s was matched from your SERVER_IGNORE_LIST" % ignore_match
+                continue
             if start_scan(final_path, 'Manual', 'Manual'):
-                return """<!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <title>Plex Autoscan</title>
-                    <meta charset="utf-8">
-                    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="row justify-content-md-center">
-                            <div class="col-md-auto text-center" style="padding-top: 10px;">
-                                <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
-                                <h3 class="text-left" style="margin: 10px;">Success</h3>
-                                <div class="alert alert-info" role="alert">
-                                    <code style="color: #000;">'{0}'</code> was added to scan queue.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </body>
-                </html>""".format(final_path)
+                logger.info("Scanning path: '%s'", final_path)
+                scanned_paths.append(final_path)
             else:
-                return """<!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <title>Plex Autoscan</title>
-                    <meta charset="utf-8">
-                    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="row justify-content-md-center">
-                            <div class="col-md-auto text-center" style="padding-top: 10px;">
-                                <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
-                                <h3 class="text-left" style="margin: 10px;">Error</h3>
-                                <div class="alert alert-danger" role="alert">
-                                    <code style="color: #000;">'{0}'</code> has already been added to the scan queue.
-                                </div>
+                success = False
+
+        if success:
+            return """<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <title>Plex Autoscan</title>
+                <meta charset="utf-8">
+                <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body>
+                <div class="container">
+                    <div class="row justify-content-md-center">
+                        <div class="col-md-auto text-center" style="padding-top: 10px;">
+                            <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
+                            <h3 class="text-left" style="margin: 10px;">Success</h3>
+                            <div class="alert alert-info" role="alert">
+                                <code style="color: #000;">'{0}'</code> was added to scan queue.
                             </div>
                         </div>
                     </div>
-                </body>
-                </html>""".format(data['filepath'])
+                </div>
+            </body>
+            </html>""".format(", ".join(scanned_paths))
+        else:
+            return """<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <title>Plex Autoscan</title>
+                <meta charset="utf-8">
+                <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body>
+                <div class="container">
+                    <div class="row justify-content-md-center">
+                        <div class="col-md-auto text-center" style="padding-top: 10px;">
+                            <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
+                            <h3 class="text-left" style="margin: 10px;">Error</h3>
+                            <div class="alert alert-danger" role="alert">
+                                <code style="color: #000;">'{0}'</code> has already been added to the scan queue.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>""".format(data['filepath'])
 
     elif 'series' in data and 'eventType' in data and data['eventType'] == 'Rename' and 'path' in data['series']:
         # sonarr Rename webhook
