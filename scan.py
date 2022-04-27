@@ -326,74 +326,77 @@ def client_pushed():
         logger.info("Client %r made a test request, event: '%s'", request.remote_addr, 'Test')
     elif 'eventType' in data and data['eventType'] == 'Manual':
         logger.info("Client %r made a manual scan request for: '%s'", request.remote_addr, data['filepath'])
-        final_path = utils.map_pushed_path(conf.configs, data['filepath'])
-        # ignore this request?
-        ignore, ignore_match = utils.should_ignore(final_path, conf.configs)
-        if ignore:
-            logger.info("Ignored scan request for '%s' because '%s' was matched from SERVER_IGNORE_LIST", final_path,
-                        ignore_match)
-            return "Ignoring scan request because %s was matched from your SERVER_IGNORE_LIST" % ignore_match
-        if start_scan(final_path, 'Manual', 'Manual'):
-            return """<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <title>Plex Autoscan</title>
-                <meta charset="utf-8">
-                <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
-            </head>
-            <body>
-                <div class="container">
-                    <div class="row justify-content-md-center">
-                        <div class="col-md-auto text-center" style="padding-top: 10px;">
-                            <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
-                            <h3 class="text-left" style="margin: 10px;">Success</h3>
-                            <div class="alert alert-info" role="alert">
-                                <code style="color: #000;">'{0}'</code> was added to scan queue.
+        final_paths = utils.map_pushed_path(conf.configs, data['filepath'])
+        for final_path in final_paths:
+            # ignore this request?
+            ignore, ignore_match = utils.should_ignore(final_path, conf.configs)
+            if ignore:
+                logger.info("Ignored scan request for '%s' because '%s' was matched from SERVER_IGNORE_LIST", final_path,
+                            ignore_match)
+                return "Ignoring scan request because %s was matched from your SERVER_IGNORE_LIST" % ignore_match
+            if start_scan(final_path, 'Manual', 'Manual'):
+                return """<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <title>Plex Autoscan</title>
+                    <meta charset="utf-8">
+                    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="row justify-content-md-center">
+                            <div class="col-md-auto text-center" style="padding-top: 10px;">
+                                <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
+                                <h3 class="text-left" style="margin: 10px;">Success</h3>
+                                <div class="alert alert-info" role="alert">
+                                    <code style="color: #000;">'{0}'</code> was added to scan queue.
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </body>
-            </html>""".format(final_path)
-        else:
-            return """<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <title>Plex Autoscan</title>
-                <meta charset="utf-8">
-                <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
-            </head>
-            <body>
-                <div class="container">
-                    <div class="row justify-content-md-center">
-                        <div class="col-md-auto text-center" style="padding-top: 10px;">
-                            <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
-                            <h3 class="text-left" style="margin: 10px;">Error</h3>
-                            <div class="alert alert-danger" role="alert">
-                                <code style="color: #000;">'{0}'</code> has already been added to the scan queue.
+                </body>
+                </html>""".format(final_path)
+            else:
+                return """<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <title>Plex Autoscan</title>
+                    <meta charset="utf-8">
+                    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="row justify-content-md-center">
+                            <div class="col-md-auto text-center" style="padding-top: 10px;">
+                                <h1 style="margin: 10px; margin-bottom: 150px;">Plex Autoscan</h1>
+                                <h3 class="text-left" style="margin: 10px;">Error</h3>
+                                <div class="alert alert-danger" role="alert">
+                                    <code style="color: #000;">'{0}'</code> has already been added to the scan queue.
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </body>
-            </html>""".format(data['filepath'])
+                </body>
+                </html>""".format(data['filepath'])
 
     elif 'series' in data and 'eventType' in data and data['eventType'] == 'Rename' and 'path' in data['series']:
         # sonarr Rename webhook
         logger.info("Client %r scan request for series: '%s', event: '%s'", request.remote_addr, data['series']['path'],
                     "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
-        final_path = utils.map_pushed_path(conf.configs, data['series']['path'])
-        start_scan(final_path, 'Sonarr',
-                   "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
+        final_paths = utils.map_pushed_path(conf.configs, data['series']['path'])
+        for final_path in final_paths:
+            start_scan(final_path, 'Sonarr',
+                       "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
 
     elif 'movie' in data and 'eventType' in data and data['eventType'] == 'Rename' and 'folderPath' in data['movie']:
         # radarr Rename webhook
         logger.info("Client %r scan request for movie: '%s', event: '%s'", request.remote_addr,
                     data['movie']['folderPath'],
                     "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
-        final_path = utils.map_pushed_path(conf.configs, data['movie']['folderPath'])
-        start_scan(final_path, 'Radarr',
-                   "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
+        final_paths = utils.map_pushed_path(conf.configs, data['movie']['folderPath'])
+        for final_path in final_paths:
+            start_scan(final_path, 'Radarr',
+                       "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
 
     elif 'movie' in data and 'movieFile' in data and 'folderPath' in data['movie'] and \
             'relativePath' in data['movieFile'] and 'eventType' in data:
@@ -401,53 +404,54 @@ def client_pushed():
         path = os.path.join(data['movie']['folderPath'], data['movieFile']['relativePath'])
         logger.info("Client %r scan request for movie: '%s', event: '%s'", request.remote_addr, path,
                     "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
-        final_path = utils.map_pushed_path(conf.configs, path)
+        final_paths = utils.map_pushed_path(conf.configs, path)
 
-        # parse scan inputs
-        scan_title = None
-        scan_lookup_type = None
-        scan_lookup_id = None
+        for final_path in final_paths:
+            # parse scan inputs
+            scan_title = None
+            scan_lookup_type = None
+            scan_lookup_id = None
 
-        if 'remoteMovie' in data:
-            if 'imdbId' in data['remoteMovie'] and data['remoteMovie']['imdbId']:
-                # prefer imdb
-                scan_lookup_id = data['remoteMovie']['imdbId']
-                scan_lookup_type = 'IMDB'
-            elif 'tmdbId' in data['remoteMovie'] and data['remoteMovie']['tmdbId']:
-                # fallback tmdb
-                scan_lookup_id = data['remoteMovie']['tmdbId']
-                scan_lookup_type = 'TheMovieDB'
+            if 'remoteMovie' in data:
+                if 'imdbId' in data['remoteMovie'] and data['remoteMovie']['imdbId']:
+                    # prefer imdb
+                    scan_lookup_id = data['remoteMovie']['imdbId']
+                    scan_lookup_type = 'IMDB'
+                elif 'tmdbId' in data['remoteMovie'] and data['remoteMovie']['tmdbId']:
+                    # fallback tmdb
+                    scan_lookup_id = data['remoteMovie']['tmdbId']
+                    scan_lookup_type = 'TheMovieDB'
 
-            scan_title = data['remoteMovie']['title'] if 'title' in data['remoteMovie'] and data['remoteMovie'][
-                'title'] else None
+                scan_title = data['remoteMovie']['title'] if 'title' in data['remoteMovie'] and data['remoteMovie'][
+                    'title'] else None
 
-        # start scan
-        start_scan(final_path, 'Radarr',
-                   "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'], scan_title,
-                   scan_lookup_type, scan_lookup_id)
+            # start scan
+            start_scan(final_path, 'Radarr',
+                       "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'], scan_title,
+                       scan_lookup_type, scan_lookup_id)
 
     elif 'series' in data and 'episodeFile' in data and 'eventType' in data:
         # sonarr download/upgrade webhook
         path = os.path.join(data['series']['path'], data['episodeFile']['relativePath'])
         logger.info("Client %r scan request for series: '%s', event: '%s'", request.remote_addr, path,
                     "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
-        final_path = utils.map_pushed_path(conf.configs, path)
+        final_paths = utils.map_pushed_path(conf.configs, path)
+        for final_path in final_paths:
+            # parse scan inputs
+            scan_title = None
+            scan_lookup_type = None
+            scan_lookup_id = None
+            if 'series' in data:
+                scan_lookup_id = data['series']['tvdbId'] if 'tvdbId' in data['series'] and data['series'][
+                    'tvdbId'] else None
+                scan_lookup_type = 'TheTVDB' if scan_lookup_id is not None else None
+                scan_title = data['series']['title'] if 'title' in data['series'] and data['series'][
+                    'title'] else None
 
-        # parse scan inputs
-        scan_title = None
-        scan_lookup_type = None
-        scan_lookup_id = None
-        if 'series' in data:
-            scan_lookup_id = data['series']['tvdbId'] if 'tvdbId' in data['series'] and data['series'][
-                'tvdbId'] else None
-            scan_lookup_type = 'TheTVDB' if scan_lookup_id is not None else None
-            scan_title = data['series']['title'] if 'title' in data['series'] and data['series'][
-                'title'] else None
-
-        # start scan
-        start_scan(final_path, 'Sonarr',
-                   "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'], scan_title,
-                   scan_lookup_type, scan_lookup_id)
+            # start scan
+            start_scan(final_path, 'Sonarr',
+                       "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'], scan_title,
+                       scan_lookup_type, scan_lookup_id)
 
     elif 'artist' in data and 'trackFiles' in data and 'eventType' in data:
         # lidarr download/upgrade webhook
@@ -458,9 +462,10 @@ def client_pushed():
             path = track['path'] if 'path' in track else os.path.join(data['artist']['path'], track['relativePath'])
             logger.info("Client %r scan request for album track: '%s', event: '%s'", request.remote_addr, path,
                         "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
-            final_path = utils.map_pushed_path(conf.configs, path)
-            start_scan(final_path, 'Lidarr',
-                       "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
+            final_paths = utils.map_pushed_path(conf.configs, path)
+            for final_path in final_paths:
+                start_scan(final_path, 'Lidarr',
+                           "Upgrade" if ('isUpgrade' in data and data['isUpgrade']) else data['eventType'])
 
     else:
         logger.error("Unknown scan request from: %r", request.remote_addr)

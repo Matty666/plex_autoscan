@@ -56,12 +56,15 @@ def ensure_valid_os_path_sep(path):
 
 
 def map_pushed_path(config, path):
+    result = []
     for mapped_path, mappings in config['SERVER_PATH_MAPPINGS'].items():
         for mapping in mappings:
             if path.startswith(mapping):
                 logger.debug("Mapping server path '%s' to '%s'.", mapping, mapped_path)
-                return ensure_valid_os_path_sep(path.replace(mapping, mapped_path))
-    return path
+                result.append(ensure_valid_os_path_sep(path.replace(mapping, mapped_path)))
+    if len(result) == 0:
+        result = [path]
+    return result
 
 
 def map_pushed_path_file_exists(config, path):
@@ -271,39 +274,40 @@ def remove_files_exist_in_plex_database(config, file_paths):
                     for file_path in copy(file_paths):
                         # check if file exists in plex
                         file_name = os.path.basename(file_path)
-                        file_path_plex = map_pushed_path(config, file_path)
-                        logger.debug("Checking to see if '%s' exists in the Plex DB located at '%s'", file_path_plex,
-                                     plex_db_path)
-                        found_item = c.execute("SELECT size FROM media_parts WHERE file LIKE ?",
-                                               ('%' + file_path_plex,)) \
-                            .fetchone()
-                        file_path_actual = map_pushed_path_file_exists(config, file_path_plex)
-                        # should plex file size and file size on disk be checked?
-                        disk_file_size_check = True
+                        file_paths_plex = map_pushed_path(config, file_path)
+                        for file_path_plex in file_paths_plex:
+                            logger.debug("Checking to see if '%s' exists in the Plex DB located at '%s'", file_path_plex,
+                                         plex_db_path)
+                            found_item = c.execute("SELECT size FROM media_parts WHERE file LIKE ?",
+                                                   ('%' + file_path_plex,)) \
+                                .fetchone()
+                            file_path_actual = map_pushed_path_file_exists(config, file_path_plex)
+                            # should plex file size and file size on disk be checked?
+                            disk_file_size_check = True
 
-                        if 'DISABLE_DISK_FILE_SIZE_CHECK' in config['GOOGLE'] \
-                                and config['GOOGLE']['DISABLE_DISK_FILE_SIZE_CHECK']:
-                            disk_file_size_check = False
+                            if 'DISABLE_DISK_FILE_SIZE_CHECK' in config['GOOGLE'] \
+                                    and config['GOOGLE']['DISABLE_DISK_FILE_SIZE_CHECK']:
+                                disk_file_size_check = False
 
-                        if found_item:
-                            logger.debug("'%s' was found in the Plex DB media_parts table.", file_name)
-                            skip_file = False
-                            if not disk_file_size_check:
-                                skip_file = True
-                            elif os.path.isfile(file_path_actual):
-                                # check if file sizes match in plex
-                                file_size = os.path.getsize(file_path_actual)
-                                logger.debug(
-                                    "Checking to see if the file size of '%s' matches the existing file size of '%s' in the Plex DB.",
-                                    file_size, found_item[0])
-                                if file_size == found_item[0]:
-                                    logger.debug("'%s' size matches size found in the Plex DB.", file_size)
+                            if found_item:
+                                logger.debug("'%s' was found in the Plex DB media_parts table.", file_name)
+                                skip_file = False
+                                if not disk_file_size_check:
                                     skip_file = True
+                                elif os.path.isfile(file_path_actual):
+                                    # check if file sizes match in plex
+                                    file_size = os.path.getsize(file_path_actual)
+                                    logger.debug(
+                                        "Checking to see if the file size of '%s' matches the existing file size of '%s' in the Plex DB.",
+                                        file_size, found_item[0])
+                                    if file_size == found_item[0]:
+                                        logger.debug("'%s' size matches size found in the Plex DB.", file_size)
+                                        skip_file = True
 
-                            if skip_file:
-                                logger.debug("Removing path from scan queue: '%s'", file_path)
-                                file_paths.remove(file_path)
-                                removed_items += 1
+                                if skip_file:
+                                    logger.debug("Removing path from scan queue: '%s'", file_path)
+                                    file_paths.remove(file_path)
+                                    removed_items += 1
 
     except Exception:
         logger.exception("Exception checking if %s exists in the Plex DB: ", file_paths)
